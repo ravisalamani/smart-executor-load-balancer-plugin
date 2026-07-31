@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.jenkins-ci.plugins</groupId>
+    <artifactId>plugin</artifactId>
+    <version>4.85</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>io.github.ravisalamani</groupId>
+  <artifactId>smart-executor-load-balancer</artifactId>
+  <version>1.1.0</version>
+  <packaging>hpi</packaging>
+
+  <name>Smart Executor Load Balancer</name>
+  <description>Routes builds to the freest node, tracks per-(node,label) failure history, and avoids nodes with repeated environment faults.</description>
+  <url>https://github.com/ravisalamani/smart-executor-load-balancer-plugin</url>
+
+  <licenses>
+    <license>
+      <name>MIT License</name>
+      <url>https://opensource.org/licenses/MIT</url>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>ravisalamani</id>
+      <name>Ravi Salamani</name>
+      <url>https://github.com/ravisalamani</url>
+    </developer>
+  </developers>
+
+  <scm>
+    <connection>scm:git:https://github.com/ravisalamani/smart-executor-load-balancer-plugin.git</connection>
+    <developerConnection>scm:git:git@github.com:ravisalamani/smart-executor-load-balancer-plugin.git</developerConnection>
+    <url>https://github.com/ravisalamani/smart-executor-load-balancer-plugin</url>
+    <tag>HEAD</tag>
+  </scm>
+
+  <properties>
+    <jenkins.version>2.479.1</jenkins.version>
+    <maven.compiler.release>11</maven.compiler.release>
+  </properties>
+
+  <!--
+    Parent POM 4.85 pins jakarta.servlet-api to 4.0.4 (javax.servlet.* namespace).
+    Jenkins-core 2.479.1 requires 5.0.0 (jakarta.servlet.* namespace).
+  -->
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>jakarta.servlet</groupId>
+        <artifactId>jakarta.servlet-api</artifactId>
+        <version>5.0.0</version>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>**/InjectedTest.java</exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <repositories>
+    <repository>
+      <id>repo.jenkins-ci.org</id>
+      <url>https://repo.jenkins-ci.org/public/</url>
+    </repository>
+  </repositories>
+
+  <pluginRepositories>
+    <pluginRepository>
+      <id>repo.jenkins-ci.org</id>
+      <url>https://repo.jenkins-ci.org/public/</url>
+    </pluginRepository>
+  </pluginRepositories>
+
+</project>

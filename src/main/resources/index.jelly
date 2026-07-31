@@ -1,0 +1,7 @@
+<?jelly escape-by-default='true'?>
+<div>
+  Smart Load Balancer v2: routes builds to the node with the highest score
+  (most idle executors, lowest system load, fewest environment faults).
+  Automatically avoids nodes that have repeated node-environment failures for
+  a given label, with per-(node, label) reset controls in Manage Jenkins.
+</div>
