@@ -1,0 +1,12 @@
+target/
+*.hpi
+*.jpi
+*.class
+.idea/
+*.iml
+*.iws
+*.ipr
+.settings/
+.classpath
+.project
+work/

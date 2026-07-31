@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Set up Maven 3.9.9
+        run: |
+          curl -fsSL https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/3.9.9/apache-maven-3.9.9-bin.tar.gz | \
+            tar -xz -C /opt
+          echo "/opt/apache-maven-3.9.9/bin" >> $GITHUB_PATH
+
+      - name: Cache Maven repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-maven-
+
+      - name: Build
+        run: mvn clean package -DskipTests -B
+
+      - name: Upload HPI
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-executor-load-balancer
+          path: target/smart-executor-load-balancer.hpi
+          retention-days: 7

@@ -1,0 +1,69 @@
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:f="/lib/form">
+
+  <!-- ── Settings ─────────────────────────────────────────────── -->
+  <form method="post" action="configure">
+    <f:section title="Settings">
+      <f:entry title="Avoidance threshold"
+               description="Suppress a node when this many consecutive builds all failed on it (checks the last N builds; avoids if every one is a node fault)">
+        <f:number name="failureThreshold" value="${it.config.failureThreshold}"
+                  min="1" max="100" step="1"/>
+      </f:entry>
+      <f:entry title="Skip failing nodes"
+               description="Enable to suppress nodes that hit the fault threshold. Disabled by default — fault history is always recorded regardless.">
+        <f:checkbox name="skipFailingNodes" checked="${it.config.skipFailingNodes}"/>
+      </f:entry>
+      <f:entry title="Load weight"
+               description="Score penalty per unit of system load average (0 = ignore load)">
+        <f:number name="loadWeight" value="${it.config.loadWeight}"
+                  min="0" max="10000" step="1"/>
+      </f:entry>
+    </f:section>
+    <f:block>
+      <f:submit value="Save"/>
+    </f:block>
+  </form>
+
+  <!-- ── Node health ───────────────────────────────────────────── -->
+  <f:section title="Node health">
+    <j:choose>
+      <j:when test="${empty it.allNodes}">
+        <p style="color:var(--text-color-secondary);margin:8px 0">No build history recorded yet.</p>
+      </j:when>
+      <j:otherwise>
+        <table class="jenkins-table sortable" style="margin-bottom:12px">
+          <thead>
+            <tr>
+              <th>Node</th><th>Recent builds</th><th>Status</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <j:forEach var="row" items="${it.allNodes}">
+              <tr>
+                <td>${row.stats.nodeName}</td>
+                <td style="font-family:monospace;letter-spacing:3px;font-size:14px">
+                  <j:forEach var="rec" items="${row.sparkline}">
+                    <span style="color:${rec.iconColor}" tooltip="${rec.displayType}"><j:out value="${rec.icon}"/></span>
+                  </j:forEach>
+                </td>
+                <td><span style="${row.statusStyle}">${row.statusLabel}</span></td>
+                <td>
+                  <j:if test="${row.suppressed}">
+                    <form method="post" action="resetNode" style="margin:0">
+                      <input type="hidden" name="nodeName" value="${row.stats.nodeName}"/>
+                      <button type="submit" class="jenkins-button">Re-enable</button>
+                    </form>
+                  </j:if>
+                </td>
+              </tr>
+            </j:forEach>
+          </tbody>
+        </table>
+        <form method="post" action="resetStats" style="margin:0">
+          <button type="submit" class="jenkins-button jenkins-button--danger">Clear all fault history</button>
+        </form>
+      </j:otherwise>
+    </j:choose>
+  </f:section>
+
+</j:jelly>
