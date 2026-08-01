@@ -6,13 +6,11 @@ import hudson.model.BuildListener;
 import hudson.model.FreeStyleBuild;
 import hudson.model.FreeStyleProject;
 import hudson.model.Label;
-import hudson.model.Node;
 import hudson.slaves.DumbSlave;
-import hudson.slaves.RetentionStrategy;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.RegisterExtension;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.TestBuilder;
+import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
@@ -38,24 +36,22 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *   node2/3/4 score = (4×1 000) − (0×10 000) = +4 000
  * </pre>
  */
+@WithJenkins
 public class SmartLoadBalancerTest {
 
-    @RegisterExtension
-    public JenkinsRule j = new JenkinsRule();
-
     @Test
-    public void balancerInstantiates() {
+    public void balancerInstantiates(JenkinsRule j) {
         assertNotNull(new SmartLoadBalancer());
     }
 
     @Test
-    public void schedulingPrefersNodeWithMoreIdleExecutors() throws Exception {
+    public void schedulingPrefersNodeWithMoreIdleExecutors(JenkinsRule j) throws Exception {
         j.jenkins.getQueue().setLoadBalancer(new SmartLoadBalancer());
 
-        DumbSlave node1 = createSlave("node1", "linux node1", 4);
-        DumbSlave node2 = createSlave("node2", "linux node2", 4);
-        DumbSlave node3 = createSlave("node3", "linux node3", 4);
-        DumbSlave node4 = createSlave("node4", "linux node4", 4);
+        DumbSlave node1 = createSlave(j, "node1", "linux node1", 4);
+        createSlave(j, "node2", "linux node2", 4);
+        createSlave(j, "node3", "linux node3", 4);
+        createSlave(j, "node4", "linux node4", 4);
 
         CountDownLatch buildRunning   = new CountDownLatch(1);
         CountDownLatch buildCanFinish = new CountDownLatch(1);
@@ -93,17 +89,10 @@ public class SmartLoadBalancerTest {
         }
     }
 
-    private DumbSlave createSlave(String name, String labels, int numExecutors)
+    private DumbSlave createSlave(JenkinsRule j, String name, String labels, int numExecutors)
             throws Exception {
-        DumbSlave slave = new DumbSlave(
-                name,
-                "/tmp/agent-" + name,
-                j.createComputerLauncher(null));
-        slave.setLabelString(labels);
+        DumbSlave slave = j.createSlave(name, labels, null);
         slave.setNumExecutors(numExecutors);
-        slave.setMode(Node.Mode.NORMAL);
-        slave.setRetentionStrategy(RetentionStrategy.NOOP);
-        j.jenkins.addNode(slave);
         j.waitOnline(slave);
         return slave;
     }

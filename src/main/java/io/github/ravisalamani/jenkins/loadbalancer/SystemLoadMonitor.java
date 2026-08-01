@@ -54,6 +54,7 @@ public class SystemLoadMonitor extends AsyncPeriodicWork {
         if (jenkins == null) return;
 
         for (hudson.model.Computer computer : jenkins.getComputers()) {
+            if (computer.getName().isEmpty()) continue; // skip built-in node
             if (!computer.isOnline() || computer.getChannel() == null) continue;
             try {
                 Double load = computer.getChannel().call(new GetSystemLoad());

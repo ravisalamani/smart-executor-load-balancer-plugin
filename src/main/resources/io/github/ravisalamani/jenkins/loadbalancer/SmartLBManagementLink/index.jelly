@@ -1,89 +1,21 @@
 <?jelly escape-by-default='true'?>
 <j:jelly xmlns:j="jelly:core"
          xmlns:st="jelly:stapler"
-         xmlns:l="/lib/layout"
-         xmlns:f="/lib/form">
+         xmlns:l="/lib/layout">
 
-  <l:layout title="Smart Executor Load Balancer" norefresh="true">
-    <l:main-panel>
+  <j:choose>
+    <j:when test="${it.supportsSettingsSubpage()}">
+      <l:settings-subpage permission="${app.ADMINISTER}">
+        <st:include it="${it}" page="_content.jelly"/>
+      </l:settings-subpage>
+    </j:when>
+    <j:otherwise>
+      <l:layout title="${it.displayName}" permission="${app.ADMINISTER}" type="one-column">
+        <l:main-panel>
+          <st:include it="${it}" page="_content.jelly"/>
+        </l:main-panel>
+      </l:layout>
+    </j:otherwise>
+  </j:choose>
 
-      <h1>Smart Executor Load Balancer</h1>
-
-      <!-- ── Settings ─────────────────────────────────────────────── -->
-      <form method="post" action="configure">
-        <st:crumb/>
-        <f:section title="Settings">
-          <f:entry title="Avoidance threshold"
-                   description="Suppress a node when this many consecutive builds all failed on it (checks the last N builds; avoids if every one is a node fault)">
-            <f:number name="failureThreshold" value="${it.config.failureThreshold}"
-                      min="1" max="100" step="1" clazz="setting-input"/>
-          </f:entry>
-          <f:entry title="Skip failing nodes"
-                   description="Enable to suppress nodes that hit the fault threshold. Disabled by default — fault history is always recorded regardless.">
-            <f:checkbox name="skipFailingNodes" checked="${it.config.skipFailingNodes}"/>
-          </f:entry>
-          <f:entry title="Load weight"
-                   description="Score penalty per unit of system load average (0 = ignore load)">
-            <f:number name="loadWeight" value="${it.config.loadWeight}"
-                      min="0" max="10000" step="1" clazz="setting-input"/>
-          </f:entry>
-        </f:section>
-        <f:block>
-          <f:submit value="Save"/>
-        </f:block>
-      </form>
-
-      <!-- ── Node health ───────────────────────────────────────────── -->
-      <h2 style="margin-top:24px">Node health</h2>
-
-      <j:choose>
-        <j:when test="${empty it.allNodes}">
-          <p style="color:#666;margin:8px 0">No build history recorded yet.</p>
-        </j:when>
-        <j:otherwise>
-          <table class="jenkins-table sortable" style="margin-bottom:12px">
-            <thead>
-              <tr>
-                <th>Node</th>
-                <th>Label</th>
-                <th>Recent builds</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <j:forEach var="row" items="${it.allNodes}">
-                <tr>
-                  <td>${row.stats.nodeName}</td>
-                  <td>${empty row.stats.label ? '(any)' : row.stats.label}</td>
-                  <td style="font-family:monospace;letter-spacing:3px;font-size:14px">
-                    <j:forEach var="rec" items="${row.sparkline}">
-                      <span style="color:${rec.iconColor}" title="${rec.displayType}">${rec.icon}</span>
-                    </j:forEach>
-                  </td>
-                  <td><span style="${row.statusStyle}">${row.statusLabel}</span></td>
-                  <td>
-                    <j:if test="${row.suppressed}">
-                      <form method="post" action="resetNode" style="margin:0">
-                        <st:crumb/>
-                        <input type="hidden" name="nodeName" value="${row.stats.nodeName}"/>
-                        <input type="hidden" name="label"    value="${row.stats.label}"/>
-                        <button type="submit" class="jenkins-button">Re-enable</button>
-                      </form>
-                    </j:if>
-                  </td>
-                </tr>
-              </j:forEach>
-            </tbody>
-          </table>
-        </j:otherwise>
-      </j:choose>
-
-      <form method="post" action="resetStats" style="margin:0">
-        <st:crumb/>
-        <button type="submit" class="jenkins-button jenkins-button--destructive">Clear all fault history</button>
-      </form>
-
-    </l:main-panel>
-  </l:layout>
 </j:jelly>

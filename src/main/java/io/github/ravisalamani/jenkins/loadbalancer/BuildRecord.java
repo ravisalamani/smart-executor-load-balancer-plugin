@@ -80,13 +80,13 @@ public final class BuildRecord implements Serializable {
     /** CSS colour class for the icon in the management UI. */
     public String getIconColor() {
         switch (failureType) {
-            case NONE:            return "green";
-            case NODE_FAULT:      return "red";
-            case TIMEOUT:         return "red";
-            case CODE_FAULT:      return "orange";
-            case DOWNSTREAM_FAIL: return "gray";
-            case ABORTED:         return "gray";
-            default:              return "gray";
+            case NONE:            return "var(--success-color)";
+            case NODE_FAULT:      return "var(--danger-color)";
+            case TIMEOUT:         return "var(--danger-color)";
+            case CODE_FAULT:      return "var(--warning-color)";
+            case DOWNSTREAM_FAIL: return "var(--text-color-secondary)";
+            case ABORTED:         return "var(--text-color-secondary)";
+            default:              return "var(--text-color-secondary)";
         }
     }
 }

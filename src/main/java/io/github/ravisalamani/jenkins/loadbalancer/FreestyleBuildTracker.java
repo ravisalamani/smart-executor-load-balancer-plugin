@@ -3,7 +3,8 @@ package io.github.ravisalamani.jenkins.loadbalancer;
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
 import hudson.model.AbstractBuild;
-import hudson.model.Label;
+import hudson.model.Computer;
+import hudson.model.Executor;
 import hudson.model.Node;
 import hudson.model.Result;
 import hudson.model.TaskListener;
@@ -45,12 +46,20 @@ public class FreestyleBuildTracker extends RunListener<AbstractBuild<?, ?>> {
                 return;
             }
 
-            Node node = build.getBuiltOn();
+            // Prefer Executor.currentExecutor() — this runs in the executor thread and is
+            // more reliable than build.getBuiltOn() when multiple builds complete simultaneously.
+            Executor executor = Executor.currentExecutor();
+            Node node;
+            if (executor != null) {
+                Computer computer = executor.getOwner();
+                node = computer != null ? computer.getNode() : null;
+            } else {
+                node = build.getBuiltOn();
+            }
             if (node == null) return;
 
-            String nodeName  = node.getNodeName();
-            Label assignedLabel = build.getProject().getAssignedLabel();
-            String labelExpr = assignedLabel != null ? assignedLabel.getExpression() : "";
+            String nodeName = node.getNodeName();
+            if (nodeName == null || nodeName.isBlank()) return;
 
             NodeLabelStatsStore store = NodeLabelStatsStore.get();
             if (store == null) return;
@@ -59,9 +68,8 @@ public class FreestyleBuildTracker extends RunListener<AbstractBuild<?, ?>> {
 
             // Successful build — record positive signal and return.
             if (result == Result.SUCCESS) {
-                LOGGER.fine(() -> "SmartLB: recording SUCCESS for freestyle ("
-                        + nodeName + ", " + labelExpr + ")");
-                store.addRecord(nodeName, labelExpr,
+                LOGGER.fine(() -> "SmartLB: recording SUCCESS for freestyle on " + nodeName);
+                store.addRecord(nodeName, "",
                         new BuildRecord(System.currentTimeMillis(),
                                 FailureType.NONE, null,
                                 build.getDuration(), null, load));
@@ -69,25 +77,25 @@ public class FreestyleBuildTracker extends RunListener<AbstractBuild<?, ?>> {
             }
 
             // Avoid double-counting: if NodeExecutorTracker already recorded a
-            // NODE_FAULT for this (node, label) within the last 5 seconds, skip.
-            NodeLabelStats existing = store.get(nodeName, labelExpr);
+            // NODE_FAULT for this node within the last 5 seconds, skip.
+            NodeLabelStats existing = store.get(nodeName, "");
             if (existing != null) {
                 java.util.List<BuildRecord> recs = existing.getRecords();
                 if (!recs.isEmpty()) {
                     BuildRecord last = recs.get(0);
                     long ageMs = System.currentTimeMillis() - last.getTimestamp();
                     if (ageMs < 5_000 && last.isNodeFault()) {
-                        LOGGER.fine("SmartLB: skipping CODE_FAULT — NODE_FAULT already recorded for ("
-                                + nodeName + ", " + labelExpr + ")");
+                        LOGGER.fine("SmartLB: skipping CODE_FAULT — NODE_FAULT already recorded for "
+                                + nodeName);
                         return;
                     }
                 }
             }
 
-            LOGGER.fine(() -> "SmartLB: recording CODE_FAULT for freestyle ("
-                    + nodeName + ", " + labelExpr + ") result=" + result);
+            LOGGER.fine(() -> "SmartLB: recording CODE_FAULT for freestyle on "
+                    + nodeName + " result=" + result);
 
-            store.addRecord(nodeName, labelExpr,
+            store.addRecord(nodeName, "",
                     new BuildRecord(
                             System.currentTimeMillis(),
                             FailureType.CODE_FAULT,

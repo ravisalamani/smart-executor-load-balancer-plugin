@@ -3,16 +3,13 @@ package io.github.ravisalamani.jenkins.loadbalancer;
 import hudson.Extension;
 import hudson.model.ManagementLink;
 import hudson.model.RootAction;
+import hudson.util.VersionNumber;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
 import org.kohsuke.stapler.QueryParameter;
-import org.kohsuke.stapler.StaplerRequest2;
-import org.kohsuke.stapler.StaplerResponse2;
-import org.kohsuke.stapler.verb.GET;
 import org.kohsuke.stapler.verb.POST;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -47,6 +44,12 @@ public class SmartLBManagementLink extends ManagementLink implements RootAction 
 
     public SmartLBConfig getConfig() {
         return SmartLBConfig.get();
+    }
+
+    /** True when running on Jenkins 2.541+ where lib/layout/settings-subpage.jelly exists. */
+    public static boolean supportsSettingsSubpage() {
+        VersionNumber v = Jenkins.getVersion();
+        return v != null && v.isNewerThanOrEqualTo(new VersionNumber("2.541"));
     }
 
     /** Used by index.jelly to render the full node-health table. */
@@ -85,9 +88,9 @@ public class SmartLBManagementLink extends ManagementLink implements RootAction 
         }
 
         public String getStatusStyle() {
-            if (suppressed) return "color:#cc0000;font-weight:bold";
-            if (atRisk)     return "color:#d97706;font-weight:bold";
-            return "color:#2d7d2d";
+            if (suppressed) return "color:var(--danger-color);font-weight:bold";
+            if (atRisk)     return "color:var(--warning-color);font-weight:bold";
+            return "color:var(--success-color)";
         }
 
         /** Records in oldest-first order for left-to-right sparkline rendering. */
@@ -96,13 +99,6 @@ public class SmartLBManagementLink extends ManagementLink implements RootAction 
             Collections.reverse(recs);
             return recs;
         }
-    }
-
-    @GET
-    public void doIndex(StaplerRequest2 req, StaplerResponse2 rsp)
-            throws IOException, jakarta.servlet.ServletException {
-        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
-        req.getView(this, "index.jelly").forward(req, rsp);
     }
 
     @POST

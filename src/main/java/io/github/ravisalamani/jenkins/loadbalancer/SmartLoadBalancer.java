@@ -2,7 +2,6 @@ package io.github.ravisalamani.jenkins.loadbalancer;
 
 import hudson.model.Computer;
 import hudson.model.Job;
-import hudson.model.Label;
 import hudson.model.LoadBalancer;
 import hudson.model.Node;
 import hudson.model.Queue;
@@ -121,8 +120,6 @@ public class SmartLoadBalancer extends LoadBalancer {
     // -------------------------------------------------------------------------
 
     private ExecutorChunk findBestExecutorChunk(Queue.Task task, WorkChunk wc) {
-        String labelExpr = labelExpr(task);
-
         NodeLabelStatsStore store = NodeLabelStatsStore.get();
         SmartLBConfig       config = SmartLBConfig.get();
 
@@ -137,9 +134,9 @@ public class SmartLoadBalancer extends LoadBalancer {
         List<ExecutorChunk> suppressed = new ArrayList<>();
 
         for (ExecutorChunk ec : allCandidates) {
-            if (skipFailing && isSuppressed(ec, labelExpr, store, threshold)) {
+            if (skipFailing && isSuppressed(ec, store, threshold)) {
                 suppressed.add(ec);
-                logSuppression(ec, labelExpr, store, threshold);
+                logSuppression(ec, store, threshold);
             } else {
                 active.add(ec);
             }
@@ -149,13 +146,13 @@ public class SmartLoadBalancer extends LoadBalancer {
         List<ExecutorChunk> pool = active.isEmpty() ? allCandidates : active;
 
         pool.sort(Comparator.comparingInt(
-                (ExecutorChunk ec) -> score(ec, labelExpr, store, config)).reversed());
+                (ExecutorChunk ec) -> score(ec, store, config)).reversed());
 
         ExecutorChunk chosen = pool.get(0);
         LOGGER.fine(() -> String.format(
-                "SmartLB: chose %s (score=%d, label=%s) — active=%d suppressed=%d",
-                chosen.getName(), score(chosen, labelExpr, store, config),
-                labelExpr, active.size(), suppressed.size()));
+                "SmartLB: chose %s (score=%d) — active=%d suppressed=%d",
+                chosen.getName(), score(chosen, store, config),
+                active.size(), suppressed.size()));
         return chosen;
     }
 
@@ -163,15 +160,14 @@ public class SmartLoadBalancer extends LoadBalancer {
     // Scoring
     // -------------------------------------------------------------------------
 
-    private int score(ExecutorChunk ec, String labelExpr,
-                      NodeLabelStatsStore store, SmartLBConfig config) {
+    private int score(ExecutorChunk ec, NodeLabelStatsStore store, SmartLBConfig config) {
         Computer computer = ec.computer;
         if (computer == null) return Integer.MIN_VALUE;
 
         int idle = computer.countIdle();
         int busy = computer.countBusy();
 
-        // Base executor balance (v1)
+        // Base executor balance
         int s = (idle * 1_000) - (busy * 10_000);
 
         // System load penalty
@@ -179,11 +175,11 @@ public class SmartLoadBalancer extends LoadBalancer {
         int loadWeight  = (config != null) ? config.getLoadWeight() : 200;
         s -= (int) (sysLoad * loadWeight);
 
-        // Failure-history penalty
+        // Failure-history penalty (per-node)
         if (store != null) {
             Node node = computer.getNode();
             if (node != null) {
-                NodeLabelStats stats = store.get(node.getNodeName(), labelExpr);
+                NodeLabelStats stats = store.get(node.getNodeName(), "");
                 if (stats != null) {
                     s -= stats.failurePenalty();
                 }
@@ -193,33 +189,24 @@ public class SmartLoadBalancer extends LoadBalancer {
         return s;
     }
 
-    private boolean isSuppressed(ExecutorChunk ec, String labelExpr,
-                                  NodeLabelStatsStore store, int threshold) {
+    private boolean isSuppressed(ExecutorChunk ec, NodeLabelStatsStore store, int threshold) {
         if (store == null || ec.computer == null) return false;
         Node node = ec.computer.getNode();
         if (node == null) return false;
-        NodeLabelStats stats = store.get(node.getNodeName(), labelExpr);
+        NodeLabelStats stats = store.get(node.getNodeName(), "");
         return stats != null && stats.isSuppressedForScheduling(threshold);
     }
 
-    private void logSuppression(ExecutorChunk ec, String labelExpr,
-                                 NodeLabelStatsStore store, int threshold) {
+    private void logSuppression(ExecutorChunk ec, NodeLabelStatsStore store, int threshold) {
         if (ec.computer == null) return;
         Node node = ec.computer.getNode();
         if (node == null) return;
-        NodeLabelStats stats = store == null ? null : store.get(node.getNodeName(), labelExpr);
+        NodeLabelStats stats = store == null ? null : store.get(node.getNodeName(), "");
         LOGGER.info(() -> String.format(
-                "SmartLB: SKIPPING %s for label '%s' — %d/%d node faults",
-                node.getNodeName(), labelExpr,
+                "SmartLB: SKIPPING %s — %d/%d node faults",
+                node.getNodeName(),
                 stats != null ? stats.getNodeFaultCount() : 0, threshold));
     }
 
-    // -------------------------------------------------------------------------
-    // Helpers
-    // -------------------------------------------------------------------------
-
-    private static String labelExpr(Queue.Task task) {
-        Label label = task.getAssignedLabel();
-        return label != null ? label.getExpression() : "";
-    }
 }
+
