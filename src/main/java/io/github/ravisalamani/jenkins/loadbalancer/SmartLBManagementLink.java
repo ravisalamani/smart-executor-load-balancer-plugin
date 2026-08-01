@@ -3,7 +3,6 @@ package io.github.ravisalamani.jenkins.loadbalancer;
 import hudson.Extension;
 import hudson.model.ManagementLink;
 import hudson.model.RootAction;
-import hudson.util.VersionNumber;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
@@ -44,12 +43,6 @@ public class SmartLBManagementLink extends ManagementLink implements RootAction 
 
     public SmartLBConfig getConfig() {
         return SmartLBConfig.get();
-    }
-
-    /** True when running on Jenkins 2.541+ where lib/layout/settings-subpage.jelly exists. */
-    public static boolean supportsSettingsSubpage() {
-        VersionNumber v = Jenkins.getVersion();
-        return v != null && v.isNewerThanOrEqualTo(new VersionNumber("2.541"));
     }
 
     /** Used by index.jelly to render the full node-health table. */
@@ -105,7 +98,7 @@ public class SmartLBManagementLink extends ManagementLink implements RootAction 
     public HttpResponse doConfigure(@QueryParameter int failureThreshold,
                                     @QueryParameter boolean skipFailingNodes,
                                     @QueryParameter int loadWeight) {
-        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        Jenkins.get().checkPermission(Jenkins.MANAGE);
         SmartLBConfig cfg = SmartLBConfig.get();
         if (cfg != null) {
             cfg.setFailureThreshold(failureThreshold);
@@ -118,7 +111,7 @@ public class SmartLBManagementLink extends ManagementLink implements RootAction 
     @POST
     public HttpResponse doResetNode(@QueryParameter String nodeName,
                                     @QueryParameter String label) {
-        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        Jenkins.get().checkPermission(Jenkins.MANAGE);
         NodeLabelStatsStore store = NodeLabelStatsStore.get();
         if (store != null) store.reset(nodeName, label);
         return HttpResponses.redirectToDot();
@@ -126,7 +119,7 @@ public class SmartLBManagementLink extends ManagementLink implements RootAction 
 
     @POST
     public HttpResponse doResetStats() {
-        Jenkins.get().checkPermission(Jenkins.ADMINISTER);
+        Jenkins.get().checkPermission(Jenkins.MANAGE);
         NodeLabelStatsStore store = NodeLabelStatsStore.get();
         if (store != null) store.resetAll();
         return HttpResponses.redirectToDot();

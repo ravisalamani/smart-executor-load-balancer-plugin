@@ -3,19 +3,8 @@
          xmlns:st="jelly:stapler"
          xmlns:l="/lib/layout">
 
-  <j:choose>
-    <j:when test="${it.supportsSettingsSubpage()}">
-      <l:settings-subpage permission="${app.ADMINISTER}">
-        <st:include it="${it}" page="_content.jelly"/>
-      </l:settings-subpage>
-    </j:when>
-    <j:otherwise>
-      <l:layout title="${it.displayName}" permission="${app.ADMINISTER}" type="one-column">
-        <l:main-panel>
-          <st:include it="${it}" page="_content.jelly"/>
-        </l:main-panel>
-      </l:layout>
-    </j:otherwise>
-  </j:choose>
+  <l:settings-subpage permission="${app.MANAGE}">
+    <st:include it="${it}" page="_content.jelly"/>
+  </l:settings-subpage>
 
 </j:jelly>
