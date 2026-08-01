@@ -35,7 +35,7 @@ public class NodeLabelStatsStore extends GlobalConfiguration {
     }
 
     public synchronized void addRecord(String nodeName, String label, BuildRecord record) {
-        if (nodeName == null || nodeName.isEmpty()) return;
+        if (nodeName == null || nodeName.isBlank()) return;
         String key = key(nodeName, label == null ? "" : label);
         NodeLabelStats stats = statsMap.get(key);
         if (stats == null) {
