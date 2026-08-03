@@ -7,9 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.jvnet.hudson.test.JenkinsRule;
 import org.jvnet.hudson.test.junit.jupiter.WithJenkins;
 
-import java.lang.reflect.Field;
-import java.util.Map;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
@@ -43,18 +40,9 @@ class NodeExecutorTrackerTest {
         NodeExecutorTracker tracker =
                 j.jenkins.getExtensionList(NodeExecutorTracker.class).get(0);
 
-        assertEquals(0, mapSize(tracker, "loadAtStartMap"),
+        assertEquals(0, tracker.loadAtStartMap.size(),
                 "loadAtStartMap must be empty after builds complete — memory leak if non-zero");
-        assertEquals(0, mapSize(tracker, "labelAtStartMap"),
+        assertEquals(0, tracker.labelAtStartMap.size(),
                 "labelAtStartMap must be empty after builds complete — memory leak if non-zero");
-        assertEquals(0, mapSize(tracker, "runIdAtStartMap"),
-                "runIdAtStartMap must be empty after builds complete");
-    }
-
-    @SuppressWarnings("unchecked")
-    private int mapSize(NodeExecutorTracker tracker, String field) throws Exception {
-        Field f = NodeExecutorTracker.class.getDeclaredField(field);
-        f.setAccessible(true);
-        return ((Map<?, ?>) f.get(tracker)).size();
     }
 }

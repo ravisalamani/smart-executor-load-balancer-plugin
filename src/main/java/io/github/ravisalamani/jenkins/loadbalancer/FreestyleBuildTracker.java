@@ -51,15 +51,14 @@ public class FreestyleBuildTracker extends RunListener<AbstractBuild<?, ?>> {
             Executor executor = Executor.currentExecutor();
             Node node;
             if (executor != null) {
-                Computer computer = executor.getOwner();
-                node = computer != null ? computer.getNode() : null;
+                node = executor.getOwner().getNode(); // getOwner() is @NonNull
             } else {
                 node = build.getBuiltOn();
             }
             if (node == null) return;
 
             String nodeName = node.getNodeName();
-            if (nodeName == null || nodeName.isBlank()) return;
+            if (nodeName.isBlank()) return;
 
             NodeLabelStatsStore store = NodeLabelStatsStore.get();
             if (store == null) return;
