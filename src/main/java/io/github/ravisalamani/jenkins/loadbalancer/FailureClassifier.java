@@ -30,7 +30,11 @@ public final class FailureClassifier {
      * @param t the throwable; may be null (treated as {@link FailureType#UNKNOWN})
      */
     public static FailureType classify(Throwable t) {
-        if (t == null) return FailureType.UNKNOWN;
+        return classifyRecursive(t, 0);
+    }
+
+    private static FailureType classifyRecursive(Throwable t, int depth) {
+        if (t == null || depth > 5) return FailureType.UNKNOWN;
 
         String cls = t.getClass().getName();
         String msg = message(t);
@@ -104,7 +108,7 @@ public final class FailureClassifier {
         // Cause-chain search for anything we might have missed
         Throwable cause = t.getCause();
         if (cause != null && cause != t) {
-            FailureType fromCause = classify(cause);
+            FailureType fromCause = classifyRecursive(cause, depth + 1);
             if (fromCause != FailureType.UNKNOWN && fromCause != FailureType.CODE_FAULT) {
                 return fromCause;
             }

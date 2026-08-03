@@ -7,6 +7,7 @@ import hudson.model.Executor;
 import hudson.model.ExecutorListener;
 import hudson.model.Label;
 import hudson.model.Node;
+import hudson.model.OneOffExecutor;
 import hudson.model.Queue;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -33,6 +34,10 @@ import java.util.logging.Logger;
  * and another succeeds, each agent's slot exits independently. The failing stage's agent
  * exits cleanly (the pipeline engine swallows the script exception), so we record NONE for
  * both agents — neither node caused the failure.
+ *
+ * <p>{@link Queue.FlyweightTask} tasks (internal housekeeping) and {@link OneOffExecutor}
+ * tasks (workspace cleanup, etc.) are excluded: they are not real builds and should not
+ * influence node-health scoring.
  */
 @Extension
 public class NodeExecutorTracker implements ExecutorListener {
@@ -40,16 +45,18 @@ public class NodeExecutorTracker implements ExecutorListener {
     private static final Logger LOGGER =
             Logger.getLogger(NodeExecutorTracker.class.getName());
 
-    /** executor identity hash → system load captured at task start. */
-    final ConcurrentHashMap<Integer, Double> loadAtStartMap = new ConcurrentHashMap<>();
+    /** executor object → system load captured at task start. */
+    final ConcurrentHashMap<Executor, Double> loadAtStartMap = new ConcurrentHashMap<>();
 
     /**
-     * executor identity hash → label expression captured at task start.
+     * executor object → label expression captured at task start.
      *
      * <p>Captured at start because {@code PlaceholderTask.getAssignedLabel()} may change from
      * the requested label (e.g. "fib_linux") to the actual node name once the task is dispatched.
+     * Using the Executor object itself as key avoids identity-hash collisions between concurrent
+     * executors.
      */
-    final ConcurrentHashMap<Integer, String> labelAtStartMap = new ConcurrentHashMap<>();
+    final ConcurrentHashMap<Executor, String> labelAtStartMap = new ConcurrentHashMap<>();
 
     // -------------------------------------------------------------------------
     // ExecutorListener callbacks
@@ -57,12 +64,12 @@ public class NodeExecutorTracker implements ExecutorListener {
 
     @Override
     public void taskStarted(Executor executor, Queue.Task task) {
+        if (task instanceof Queue.FlyweightTask || executor instanceof OneOffExecutor) return;
         try {
-            int key = System.identityHashCode(executor);
             Computer computer = executor.getOwner();
             double load = computer != null ? SystemLoadMonitor.getLoad(computer.getName()) : 0.0;
-            loadAtStartMap.put(key, load);
-            labelAtStartMap.put(key, labelExpr(task));
+            loadAtStartMap.put(executor, load);
+            labelAtStartMap.put(executor, labelExpr(task));
         } catch (Exception e) {
             LOGGER.log(Level.FINE, "SmartLB: error capturing start state", e);
         }
@@ -71,6 +78,7 @@ public class NodeExecutorTracker implements ExecutorListener {
     @Override
     public void taskCompletedWithProblems(Executor executor, Queue.Task task,
                                           long durationMS, Throwable problems) {
+        if (task instanceof Queue.FlyweightTask || executor instanceof OneOffExecutor) return;
         try {
             record(executor, task, durationMS, problems, true);
         } catch (Exception e) {
@@ -80,11 +88,11 @@ public class NodeExecutorTracker implements ExecutorListener {
 
     @Override
     public void taskCompleted(Executor executor, Queue.Task task, long durationMS) {
-        int key = System.identityHashCode(executor);
+        if (task instanceof Queue.FlyweightTask || executor instanceof OneOffExecutor) return;
         if (task instanceof AbstractProject) {
             // FreestyleBuildTracker handles recording for freestyle; just clean up maps.
-            loadAtStartMap.remove(key);
-            labelAtStartMap.remove(key);
+            loadAtStartMap.remove(executor);
+            labelAtStartMap.remove(executor);
             return;
         }
         // Clean slot exit — node was healthy. Record NONE.
@@ -101,9 +109,8 @@ public class NodeExecutorTracker implements ExecutorListener {
 
     private void record(Executor executor, Queue.Task task,
                         long durationMS, Throwable problems, boolean hadProblems) {
-        int key = System.identityHashCode(executor);
-        String captured  = labelAtStartMap.remove(key);
-        Double loadBoxed = loadAtStartMap.remove(key);
+        String captured  = labelAtStartMap.remove(executor);
+        Double loadBoxed = loadAtStartMap.remove(executor);
 
         Computer computer = executor.getOwner();
         Node node = computer != null ? computer.getNode() : null;
@@ -124,8 +131,8 @@ public class NodeExecutorTracker implements ExecutorListener {
                     "SmartLB: executor fault on (%s, %s): %s — %s",
                     nodeName, labelExpr, type, reason));
         } else if (hadProblems) {
-            type   = FailureType.CODE_FAULT;
-            reason = "build failed (no exception)";
+            type   = FailureType.UNKNOWN;
+            reason = "taskCompletedWithProblems: no exception provided";
         } else {
             type   = FailureType.NONE;
             reason = null;

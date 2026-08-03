@@ -30,6 +30,17 @@ public final class NodeLabelStats implements Serializable {
     }
 
     public synchronized void addRecord(BuildRecord record, int maxSize) {
+        // When an infrastructure fault (NODE_FAULT/TIMEOUT) arrives just after a CODE_FAULT
+        // for the same build — RunListener fires before ExecutorListener, so FreestyleBuildTracker
+        // records CODE_FAULT first — replace it rather than storing both.  A 10-second gap is
+        // generous enough to absorb any JVM scheduling jitter between the two callbacks.
+        if (record.isNodeFault() && !records.isEmpty()) {
+            BuildRecord first = records.getFirst();
+            long gapMs = record.getTimestamp() - first.getTimestamp();
+            if (!first.isNodeFault() && gapMs < 10_000) {
+                records.removeFirst();
+            }
+        }
         records.addFirst(record);
         while (records.size() > maxSize) {
             records.removeLast();

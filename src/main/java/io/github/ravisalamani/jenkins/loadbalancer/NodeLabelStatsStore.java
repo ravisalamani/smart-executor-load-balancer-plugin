@@ -7,6 +7,7 @@ import org.kohsuke.stapler.StaplerRequest2;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
@@ -55,10 +56,7 @@ public class NodeLabelStatsStore extends GlobalConfiguration {
     /** Returns all (node, label) entries sorted by node name then label. */
     public synchronized List<NodeLabelStats> getAllEntries() {
         List<NodeLabelStats> result = new ArrayList<>(statsMap.values());
-        result.sort((a, b) -> {
-            int c = a.getNodeName().compareTo(b.getNodeName());
-            return c != 0 ? c : a.getLabel().compareTo(b.getLabel());
-        });
+        result.sort(BY_NODE_THEN_LABEL);
         return result;
     }
 
@@ -68,12 +66,15 @@ public class NodeLabelStatsStore extends GlobalConfiguration {
         for (NodeLabelStats s : statsMap.values()) {
             if (s.isSuppressedForScheduling(threshold)) result.add(s);
         }
-        Collections.sort(result, (a, b) -> {
-            int c = a.getNodeName().compareTo(b.getNodeName());
-            return c != 0 ? c : a.getLabel().compareTo(b.getLabel());
-        });
+        result.sort(BY_NODE_THEN_LABEL);
         return result;
     }
+
+    private static final Comparator<NodeLabelStats> BY_NODE_THEN_LABEL =
+            Comparator.comparing(NodeLabelStats::getNodeName,
+                    Comparator.nullsFirst(Comparator.naturalOrder()))
+                .thenComparing(NodeLabelStats::getLabel,
+                    Comparator.nullsFirst(Comparator.naturalOrder()));
 
     /** Clears fault history for a single (node, label) pair, re-enabling it immediately. */
     public synchronized void reset(String nodeName, String label) {

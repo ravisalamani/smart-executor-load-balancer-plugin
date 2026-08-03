@@ -74,10 +74,12 @@ public class NodeHealthRowTest {
     @Test
     public void sparklineIsOldestFirst() {
         NodeLabelStats s = new NodeLabelStats("node1", "linux");
-        // add oldest first (addRecord puts newest at front)
-        s.addRecord(rec(FailureType.NONE),       3); // oldest
-        s.addRecord(rec(FailureType.CODE_FAULT), 3);
-        s.addRecord(rec(FailureType.NODE_FAULT), 3); // newest
+        // Use timestamps 60 s apart — independent events, so the NODE_FAULT dedup window
+        // (10 s) does not collapse the CODE_FAULT into the NODE_FAULT.
+        long t = System.currentTimeMillis();
+        s.addRecord(new BuildRecord(t - 120_000, FailureType.NONE,       null, 1_000, null, 0.0), 3);
+        s.addRecord(new BuildRecord(t - 60_000,  FailureType.CODE_FAULT, null, 1_000, null, 0.0), 3);
+        s.addRecord(new BuildRecord(t,           FailureType.NODE_FAULT, null, 1_000, null, 0.0), 3);
 
         List<BuildRecord> sparkline = row(s, 3).getSparkline();
 

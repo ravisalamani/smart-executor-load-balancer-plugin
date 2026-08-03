@@ -2,7 +2,6 @@ package io.github.ravisalamani.jenkins.loadbalancer;
 
 import hudson.Extension;
 import hudson.model.ManagementLink;
-import hudson.model.RootAction;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.HttpResponse;
 import org.kohsuke.stapler.HttpResponses;
@@ -19,7 +18,7 @@ import java.util.List;
  * <p>URL: {@code /manage/smart-lb/}
  */
 @Extension
-public class SmartLBManagementLink extends ManagementLink implements RootAction {
+public class SmartLBManagementLink extends ManagementLink {
 
     @Override
     public String getIconFileName() {
