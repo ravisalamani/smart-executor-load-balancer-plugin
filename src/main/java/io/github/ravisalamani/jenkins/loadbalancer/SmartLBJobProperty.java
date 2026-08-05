@@ -35,7 +35,7 @@ public class SmartLBJobProperty extends JobProperty<Job<?, ?>> {
 
         @Override
         public String getDisplayName() {
-            return "Smart Load Balancer";
+            return "Smart Executor Load Balancer";
         }
 
         @Override

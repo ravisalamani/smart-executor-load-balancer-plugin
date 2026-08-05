@@ -123,7 +123,7 @@ public class SmartLoadBalancer extends LoadBalancer {
         NodeLabelStatsStore store = NodeLabelStatsStore.get();
         SmartLBConfig       config = SmartLBConfig.get();
 
-        int threshold = (config != null) ? config.getFailureThreshold() : 10;
+        int threshold = (config != null) ? config.getFailureThreshold() : 3;
         boolean skipFailing = (config == null) || config.isSkipFailingNodes();
 
         List<ExecutorChunk> allCandidates = new ArrayList<>(wc.applicableExecutorChunks());
