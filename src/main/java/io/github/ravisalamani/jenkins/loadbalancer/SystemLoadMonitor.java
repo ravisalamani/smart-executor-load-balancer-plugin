@@ -13,6 +13,10 @@ import java.io.Serializable;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,6 +39,9 @@ public class SystemLoadMonitor extends AsyncPeriodicWork {
     /** Poll every 30 seconds. */
     private static final long PERIOD_MS = 30_000L;
 
+    /** Maximum time to wait for a single agent's load-average response. */
+    private static final long CALL_TIMEOUT_SEC = 5L;
+
     /** computerName → most recent 1-min load average (0.0 if unknown/Windows). */
     private static final ConcurrentHashMap<String, Double> CACHE =
             new ConcurrentHashMap<>();
@@ -56,12 +63,18 @@ public class SystemLoadMonitor extends AsyncPeriodicWork {
         for (hudson.model.Computer computer : jenkins.getComputers()) {
             if (computer.getName().isEmpty()) continue; // skip built-in node
             if (!computer.isOnline() || computer.getChannel() == null) continue;
+            Future<Double> future = computer.getChannel().callAsync(new GetSystemLoad());
             try {
-                Double load = computer.getChannel().call(new GetSystemLoad());
+                Double load = future.get(CALL_TIMEOUT_SEC, TimeUnit.SECONDS);
                 if (load != null) {
                     CACHE.put(computer.getName(), load);
                 }
-            } catch (Exception e) {
+            } catch (TimeoutException e) {
+                future.cancel(true);
+                LOGGER.log(Level.WARNING,
+                        "SmartLB: load poll timed out for {0} — skipping",
+                        computer.getName());
+            } catch (ExecutionException | InterruptedException e) {
                 LOGGER.log(Level.FINE,
                         "SmartLB: could not poll load from " + computer.getName(), e);
             }
