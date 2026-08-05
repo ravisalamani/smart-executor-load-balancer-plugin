@@ -30,18 +30,23 @@ public final class FailureClassifier {
      * @param t the throwable; may be null (treated as {@link FailureType#UNKNOWN})
      */
     public static FailureType classify(Throwable t) {
-        if (t == null) return FailureType.UNKNOWN;
+        return classifyRecursive(t, 0);
+    }
+
+    private static FailureType classifyRecursive(Throwable t, int depth) {
+        if (t == null || depth > 5) return FailureType.UNKNOWN;
 
         String cls = t.getClass().getName();
         String msg = message(t);
 
         // --- Aborts / interruptions -------------------------------------------
-        if (t instanceof InterruptedException) return FailureType.ABORTED;
-
-        // FlowInterruptedException from the pipeline engine wraps several causes
+        // FlowInterruptedException extends InterruptedException, so check it FIRST —
+        // otherwise the generic instanceof check below short-circuits to ABORTED.
         if (cls.contains("FlowInterruptedException")) {
             return classifyFlowInterruption(t);
         }
+
+        if (t instanceof InterruptedException) return FailureType.ABORTED;
 
         // --- Node-environment faults ------------------------------------------
         // Remoting/channel issues — the agent dropped out
@@ -104,7 +109,7 @@ public final class FailureClassifier {
         // Cause-chain search for anything we might have missed
         Throwable cause = t.getCause();
         if (cause != null && cause != t) {
-            FailureType fromCause = classify(cause);
+            FailureType fromCause = classifyRecursive(cause, depth + 1);
             if (fromCause != FailureType.UNKNOWN && fromCause != FailureType.CODE_FAULT) {
                 return fromCause;
             }
@@ -147,6 +152,14 @@ public final class FailureClassifier {
     // -------------------------------------------------------------------------
 
     private static FailureType classifyFlowInterruption(Throwable t) {
+        // Check message first — agent reconnect timeout produces a distinctive message
+        // before getCauses() is even inspected.
+        String msg = message(t);
+        if (containsAny(msg, "timeout waiting for agent", "agent took too long",
+                "assuming it is not coming back")) {
+            return FailureType.NODE_FAULT;
+        }
+
         // FlowInterruptedException carries CauseOfInterruption objects.
         // We inspect them via reflection to avoid hard-coupling to workflow-api.
         try {
@@ -160,8 +173,13 @@ public final class FailureClassifier {
                 if (causeCls.contains("UserInterrupt") || causeCls.contains("AbortWork")) {
                     return FailureType.ABORTED;
                 }
+                // Agent disappeared mid-build
+                if (causeCls.contains("AgentOffline") || causeCls.contains("AgentKilled")
+                        || causeCls.contains("AgentReconnect") || causeCls.contains("LostContact")) {
+                    return FailureType.NODE_FAULT;
+                }
             }
-        } catch (Exception ignored) {
+        } catch (ReflectiveOperationException ignored) {
             // reflection failed — fall through
         }
         // Default: treat pipeline interruption as abort

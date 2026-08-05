@@ -40,15 +40,15 @@ Go to **Manage Jenkins → Smart Executor Load Balancer**.
 
 | Setting | Default | Description |
 |---|---|---|
-| **History window** | `3` | How many recent builds to look at per node. A node is suppressed when ALL of the last N builds were node-environment faults. |
+| **Avoidance threshold** | `3` | How many recent builds to look at per node. A node is suppressed when ALL of the last N builds were node-environment faults. |
 | **Skip failing nodes** | disabled | Enable to activate node suppression. Fault history is always recorded regardless, so you can observe the health table before turning this on. |
 | **Load weight** | `200` | Multiplier applied to the node's 1-minute load average when computing the score. Set to 0 to disable load-aware routing. |
 
 ## Per-job opt-out
 
 On any job's configuration page, under **Smart Executor Load Balancer**, tick
-**Disable Smart Executor Load Balancer for this job** to use Jenkins' default
-scheduler for that job only. Useful for jobs pinned to a specific node.
+**Disable Smart Executor Load Balancer** to use Jenkins' default scheduler for
+that job only. Useful for jobs pinned to a specific node.
 
 ## How suppression works
 

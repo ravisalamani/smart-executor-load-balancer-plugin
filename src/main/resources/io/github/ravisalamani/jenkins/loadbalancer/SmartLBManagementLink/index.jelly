@@ -55,7 +55,7 @@
                     <j:if test="${row.suppressed}">
                       <form method="post" action="resetNode" style="margin:0">
                         <input type="hidden" name="nodeName" value="${row.stats.nodeName}"/>
-                        <button type="submit" class="jenkins-button">Re-enable</button>
+                        <button type="submit" class="jenkins-button jenkins-button--primary">Re-enable</button>
                       </form>
                     </j:if>
                   </td>

@@ -15,7 +15,7 @@ public class SmartLBConfig extends GlobalConfiguration {
 
     @Override
     public String getDisplayName() {
-        return null; // hides this section from Manage Jenkins → System Configuration
+        return ""; // hides this section from Manage Jenkins → System Configuration
     }
 
     /**

@@ -23,12 +23,12 @@ import java.util.logging.Logger;
  * pipeline agent block fires {@link NodeExecutorTracker} independently with
  * stage-level granularity.
  *
- * <p>We only record {@link FailureType#CODE_FAULT} from here.  Node-environment
- * faults that did throw (channel crash, OOM …) were already captured by
- * {@link NodeExecutorTracker#taskCompletedWithProblems}; recording a second
- * CODE_FAULT here for those would undercount the true NODE_FAULT rate.  We
- * guard against double-counting by checking the most-recent record in the store
- * and skipping if it is already a NODE_FAULT for this build.
+ * <p>When a freestyle build fails due to an infrastructure fault (channel crash,
+ * OOM …), both this listener and {@link NodeExecutorTracker#taskCompletedWithProblems}
+ * fire for the same event — {@code RunListener} always fires first.  This class
+ * records {@code CODE_FAULT} unconditionally; {@link NodeLabelStats#addRecord}
+ * replaces it with the subsequent {@code NODE_FAULT} when the two arrive within
+ * 10 seconds of each other.
  */
 @Extension
 public class FreestyleBuildTracker extends RunListener<AbstractBuild<?, ?>> {
@@ -73,22 +73,6 @@ public class FreestyleBuildTracker extends RunListener<AbstractBuild<?, ?>> {
                                 FailureType.NONE, null,
                                 build.getDuration(), null, load));
                 return;
-            }
-
-            // Avoid double-counting: if NodeExecutorTracker already recorded a
-            // NODE_FAULT for this node within the last 5 seconds, skip.
-            NodeLabelStats existing = store.get(nodeName, "");
-            if (existing != null) {
-                java.util.List<BuildRecord> recs = existing.getRecords();
-                if (!recs.isEmpty()) {
-                    BuildRecord last = recs.get(0);
-                    long ageMs = System.currentTimeMillis() - last.getTimestamp();
-                    if (ageMs < 5_000 && last.isNodeFault()) {
-                        LOGGER.fine("SmartLB: skipping CODE_FAULT — NODE_FAULT already recorded for "
-                                + nodeName);
-                        return;
-                    }
-                }
             }
 
             LOGGER.fine(() -> "SmartLB: recording CODE_FAULT for freestyle on "
