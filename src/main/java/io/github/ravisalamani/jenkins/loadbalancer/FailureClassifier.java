@@ -1,5 +1,8 @@
 package io.github.ravisalamani.jenkins.loadbalancer;
 
+import jenkins.model.CauseOfInterruption;
+import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;
+
 import java.util.logging.Logger;
 
 /**
@@ -41,9 +44,9 @@ public final class FailureClassifier {
 
         // --- Aborts / interruptions -------------------------------------------
         // FlowInterruptedException extends InterruptedException, so check it FIRST —
-        // otherwise the generic instanceof check below short-circuits to ABORTED.
-        if (cls.contains("FlowInterruptedException")) {
-            return classifyFlowInterruption(t);
+        // otherwise the instanceof check below short-circuits to ABORTED.
+        if (t instanceof FlowInterruptedException) {
+            return classifyFlowInterruption((FlowInterruptedException) t);
         }
 
         if (t instanceof InterruptedException) return FailureType.ABORTED;
@@ -151,36 +154,28 @@ public final class FailureClassifier {
     // Internal helpers
     // -------------------------------------------------------------------------
 
-    private static FailureType classifyFlowInterruption(Throwable t) {
+    private static FailureType classifyFlowInterruption(FlowInterruptedException fie) {
         // Check message first — agent reconnect timeout produces a distinctive message
         // before getCauses() is even inspected.
-        String msg = message(t);
+        String msg = message(fie);
         if (containsAny(msg, "timeout waiting for agent", "agent took too long",
                 "assuming it is not coming back")) {
             return FailureType.NODE_FAULT;
         }
 
-        // FlowInterruptedException carries CauseOfInterruption objects.
-        // We inspect them via reflection to avoid hard-coupling to workflow-api.
-        try {
-            java.lang.reflect.Method getCauses = t.getClass().getMethod("getCauses");
-            Iterable<?> causes = (Iterable<?>) getCauses.invoke(t);
-            for (Object cause : causes) {
-                String causeCls = cause.getClass().getName();
-                if (causeCls.contains("ExceededTimeout") || causeCls.contains("Timeout")) {
-                    return FailureType.TIMEOUT;
-                }
-                if (causeCls.contains("UserInterrupt") || causeCls.contains("AbortWork")) {
-                    return FailureType.ABORTED;
-                }
-                // Agent disappeared mid-build
-                if (causeCls.contains("AgentOffline") || causeCls.contains("AgentKilled")
-                        || causeCls.contains("AgentReconnect") || causeCls.contains("LostContact")) {
-                    return FailureType.NODE_FAULT;
-                }
+        for (CauseOfInterruption cause : fie.getCauses()) {
+            String causeCls = cause.getClass().getName();
+            if (causeCls.contains("ExceededTimeout") || causeCls.contains("Timeout")) {
+                return FailureType.TIMEOUT;
             }
-        } catch (ReflectiveOperationException ignored) {
-            // reflection failed — fall through
+            if (causeCls.contains("UserInterrupt") || causeCls.contains("AbortWork")) {
+                return FailureType.ABORTED;
+            }
+            // Agent disappeared mid-build
+            if (causeCls.contains("AgentOffline") || causeCls.contains("AgentKilled")
+                    || causeCls.contains("AgentReconnect") || causeCls.contains("LostContact")) {
+                return FailureType.NODE_FAULT;
+            }
         }
         // Default: treat pipeline interruption as abort
         return FailureType.ABORTED;
