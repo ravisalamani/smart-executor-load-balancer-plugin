@@ -6,7 +6,7 @@
   <l:settings-subpage permission="${app.MANAGE}">
 
     <!-- ── Settings ────────────────────────────────────────────── -->
-    <form method="post" action="configure">
+    <f:form method="post" action="configure">
       <f:section title="Settings">
         <f:entry title="Avoidance threshold"
                  description="Suppress a node when this many consecutive builds all failed on it (checks the last N builds; avoids if every one is a node fault)">
@@ -26,7 +26,7 @@
       <f:block>
         <f:submit value="Save"/>
       </f:block>
-    </form>
+    </f:form>
 
     <!-- ── Node health ──────────────────────────────────────────── -->
     <f:section title="Node health">
@@ -53,19 +53,19 @@
                   <td><span style="${row.statusStyle}">${row.statusLabel}</span></td>
                   <td>
                     <j:if test="${row.suppressed}">
-                      <form method="post" action="resetNode" style="margin:0">
+                      <f:form method="post" action="resetNode" style="margin:0">
                         <input type="hidden" name="nodeName" value="${row.stats.nodeName}"/>
                         <button type="submit" class="jenkins-button jenkins-button--primary">Re-enable</button>
-                      </form>
+                      </f:form>
                     </j:if>
                   </td>
                 </tr>
               </j:forEach>
             </tbody>
           </table>
-          <form method="post" action="resetStats" style="margin:0">
+          <f:form method="post" action="resetStats" style="margin:0">
             <button type="submit" class="jenkins-button jenkins-!-destructive-color">Clear all fault history</button>
-          </form>
+          </f:form>
         </j:otherwise>
       </j:choose>
     </f:section>

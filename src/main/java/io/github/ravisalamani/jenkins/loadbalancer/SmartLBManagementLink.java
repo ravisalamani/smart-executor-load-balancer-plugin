@@ -40,6 +40,11 @@ public class SmartLBManagementLink extends ManagementLink {
         return "smart-lb";
     }
 
+    @Override
+    public Category getCategory() {
+        return Category.CONFIGURATION;
+    }
+
     public SmartLBConfig getConfig() {
         return SmartLBConfig.get();
     }

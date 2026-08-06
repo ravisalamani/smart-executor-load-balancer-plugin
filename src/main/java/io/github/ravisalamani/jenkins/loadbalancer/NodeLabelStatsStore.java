@@ -10,6 +10,10 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
 /**
@@ -24,6 +28,11 @@ public class NodeLabelStatsStore extends GlobalConfiguration {
 
     private static final Logger LOGGER =
             Logger.getLogger(NodeLabelStatsStore.class.getName());
+    private static final long SAVE_DEBOUNCE_SEC = 10L;
+
+    private final ScheduledExecutorService saveScheduler =
+            Executors.newSingleThreadScheduledExecutor();
+    private ScheduledFuture<?> pendingSave;
 
     private HashMap<String, NodeLabelStats> statsMap = new HashMap<>();
 
@@ -46,7 +55,14 @@ public class NodeLabelStatsStore extends GlobalConfiguration {
         SmartLBConfig cfg = SmartLBConfig.get();
         int maxSize = (cfg != null) ? cfg.getFailureThreshold() : 3;
         stats.addRecord(record, maxSize);
-        save();
+        scheduleSave();
+    }
+
+    private synchronized void scheduleSave() {
+        if (pendingSave != null && !pendingSave.isDone()) {
+            pendingSave.cancel(false);
+        }
+        pendingSave = saveScheduler.schedule(this::save, SAVE_DEBOUNCE_SEC, TimeUnit.SECONDS);
     }
 
     public synchronized NodeLabelStats get(String nodeName, String label) {
