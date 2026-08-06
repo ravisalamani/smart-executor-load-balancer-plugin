@@ -30,9 +30,9 @@ public class NodeLabelStatsStore extends GlobalConfiguration {
             Logger.getLogger(NodeLabelStatsStore.class.getName());
     private static final long SAVE_DEBOUNCE_SEC = 10L;
 
-    private final ScheduledExecutorService saveScheduler =
-            Executors.newSingleThreadScheduledExecutor();
-    private ScheduledFuture<?> pendingSave;
+    // transient so XStream does not attempt to serialize these fields
+    private transient ScheduledExecutorService saveScheduler;
+    private transient ScheduledFuture<?> pendingSave;
 
     private HashMap<String, NodeLabelStats> statsMap = new HashMap<>();
 
@@ -59,6 +59,9 @@ public class NodeLabelStatsStore extends GlobalConfiguration {
     }
 
     private synchronized void scheduleSave() {
+        if (saveScheduler == null || saveScheduler.isShutdown()) {
+            saveScheduler = Executors.newSingleThreadScheduledExecutor();
+        }
         if (pendingSave != null && !pendingSave.isDone()) {
             pendingSave.cancel(false);
         }
