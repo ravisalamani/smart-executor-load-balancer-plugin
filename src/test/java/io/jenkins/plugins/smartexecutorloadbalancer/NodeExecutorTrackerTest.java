@@ -1,4 +1,4 @@
-package io.github.ravisalamani.jenkins.loadbalancer;
+package io.jenkins.plugins.smartexecutorloadbalancer;
 
 import hudson.model.FreeStyleProject;
 import hudson.model.Label;
