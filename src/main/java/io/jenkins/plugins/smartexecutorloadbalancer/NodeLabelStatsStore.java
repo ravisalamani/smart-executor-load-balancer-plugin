@@ -1,4 +1,4 @@
-package io.github.ravisalamani.jenkins.loadbalancer;
+package io.jenkins.plugins.smartexecutorloadbalancer;
 
 import hudson.Extension;
 import jenkins.model.GlobalConfiguration;
@@ -10,17 +10,15 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.logging.Logger;
 
 /**
  * Singleton store for all (node, label) statistics.
  *
  * <p>Extends {@link GlobalConfiguration} so Jenkins persists the map
- * automatically to {@code $JENKINS_HOME/io.github.ravisalamani.jenkins.loadbalancer
+ * automatically to {@code $JENKINS_HOME/io.jenkins.plugins.smartexecutorloadbalancer
  * .NodeLabelStatsStore.xml} via XStream.
  */
 @Extension
@@ -28,11 +26,11 @@ public class NodeLabelStatsStore extends GlobalConfiguration {
 
     private static final Logger LOGGER =
             Logger.getLogger(NodeLabelStatsStore.class.getName());
-    private static final long SAVE_DEBOUNCE_SEC = 10L;
+    private static final long SAVE_DEBOUNCE_MS = 10_000L;
+    private static final Timer SAVE_TIMER = new Timer("SmartLB-save", true);
 
-    // transient so XStream does not attempt to serialize these fields
-    private transient ScheduledExecutorService saveScheduler;
-    private transient ScheduledFuture<?> pendingSave;
+    // transient so XStream does not attempt to serialize this field
+    private transient TimerTask pendingSave;
 
     private HashMap<String, NodeLabelStats> statsMap = new HashMap<>();
 
@@ -59,13 +57,11 @@ public class NodeLabelStatsStore extends GlobalConfiguration {
     }
 
     private synchronized void scheduleSave() {
-        if (saveScheduler == null || saveScheduler.isShutdown()) {
-            saveScheduler = Executors.newSingleThreadScheduledExecutor();
-        }
-        if (pendingSave != null && !pendingSave.isDone()) {
-            pendingSave.cancel(false);
-        }
-        pendingSave = saveScheduler.schedule(this::save, SAVE_DEBOUNCE_SEC, TimeUnit.SECONDS);
+        if (pendingSave != null) pendingSave.cancel();
+        pendingSave = new TimerTask() {
+            @Override public void run() { save(); }
+        };
+        SAVE_TIMER.schedule(pendingSave, SAVE_DEBOUNCE_MS);
     }
 
     public synchronized NodeLabelStats get(String nodeName, String label) {

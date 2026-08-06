@@ -1,4 +1,4 @@
-package io.github.ravisalamani.jenkins.loadbalancer;
+package io.jenkins.plugins.smartexecutorloadbalancer;
 
 import jenkins.model.CauseOfInterruption;
 import org.jenkinsci.plugins.workflow.steps.FlowInterruptedException;

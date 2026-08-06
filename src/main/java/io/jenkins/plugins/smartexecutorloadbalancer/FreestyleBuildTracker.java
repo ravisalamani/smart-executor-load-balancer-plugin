@@ -1,4 +1,4 @@
-package io.github.ravisalamani.jenkins.loadbalancer;
+package io.jenkins.plugins.smartexecutorloadbalancer;
 
 import edu.umd.cs.findbugs.annotations.NonNull;
 import hudson.Extension;
